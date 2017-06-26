@@ -25,6 +25,8 @@ def sino_gene(DICOM_path, **kwargs):
     DICOM_path: the directory where projection images at each angle are stored,
     in open CT format
     
+    Keyword Arguments
+    --------------------------
     roi_min, roi_max: 
     To better understand the notion of roi_min and roi_max, please refer to 
     figure given below
@@ -42,11 +44,9 @@ def sino_gene(DICOM_path, **kwargs):
                         -                           -
     here is min_pt -->  *----------------------------
     
-    src: distance between X-ray source and object rotation axis
+    LightField:
     
-    det: distance between rotation axis of object and detector
-    
-    l1: length of a single pixel on the detector 
+    Log: After log calibration, information stored in img is attenuation coefficient
     '''
     
     # A flag to check if addition input parameters are enough to perform projection
@@ -64,6 +64,12 @@ def sino_gene(DICOM_path, **kwargs):
         flag += 1
         a1 = np.array(roi_max)
 
+    LightFieldPath = kwargs.pop('LightFieldPath', None)
+    if LightFieldPath is not None:
+        LF_ds = dicom.read_file(LightFieldPath)
+        LightField = LF_ds.pixel_array
+    Log = kwargs.pop('Log', None)
+    
     # Check if the reconstruction space is centered in the origin point
     if roi_max[0] + roi_min[0] != 0 or roi_max[1] + roi_min[1] == 0 \
     or roi_max[0] + roi_min[0] == 0:
@@ -88,8 +94,8 @@ def sino_gene(DICOM_path, **kwargs):
 
     # Calculate the range on projection image that correspond to the region
     # that users want to reconstruct
-    L1 = np.int(ds.NumberofDetectorRows/2)
-    L2 = np.int(ds.NumberofDetectorColumns/2)
+    L1 = np.int(ds.Rows/2)
+    L2 = np.int(ds.Columns/2)
     center_1 = L1
     center_2 = L2
     src = ds.DistanceSourceToDetector
@@ -122,14 +128,18 @@ def sino_gene(DICOM_path, **kwargs):
             
             L2 = (src+det)/(src-np.sqrt(roi_max[0]**2+roi_max[1]**2))*roi_max[2]*1/l2 + 5
             # Ensure the truncated region will not be larger than the collected projection image
-            L1 = np.clip(L1,1,ds.NumberofDetectorColumns/2)
-            L2 = np.clip(L2,1,ds.NumberofDetectorRows/2)
+            L1 = np.clip(L1,1,ds.Columns/2)
+            L2 = np.clip(L2,1,ds.Rows/2)
             
             sinogram = np.zeros([number, 2*L1, 2*L2])
             i = 0
             for filename in glob.glob(os.path.join(DICOM_path, '*.dcm')):
                 ds = dicom.read_file(filename)
                 img = ds.pixel_array
+                img = -np.log(img/LightField)
+                img[img<0] = 0
+                img[np.isnan(img)] = 0
+                img[np.isinf(img)] = 0
                 sinogram[i,:,:] = img[center_1-L1:center_1+L1, center_2-L2:center_2+L2]
                 i += 1
     
@@ -145,38 +155,50 @@ def sino_gene(DICOM_path, **kwargs):
             L1_45 = (src+det)/(src) * np.sqrt(2) * Len * 1/l1 + 5
             
             L1 = max(L1_45, L1_90_1, L1_90_2)
-            L1 = np.clip(L1,1,ds.NumberofDetectorColumns/2)
+            L1 = np.clip(L1,1,ds.Columns/2)
             # L1 = ((src+det)/src) * np.sqrt(roi_max[0]**2 + roi_max[1]**2)/l1
             sinogram = np.zeros([number, 2*L1])
             i = 0
             for filename in glob.glob(os.path.join(DICOM_path, '*.dcm')):
                 ds = dicom.read_file(filename)
                 img = ds.pixel_array
+                img = -np.log(img/LightField)
+                img[img<0] = 0
+                img[np.isnan(img)] = 0
+                img[np.isinf(img)] = 0
                 sinogram[i,:] = img[center_1-L1:center_1+L1]
                 i += 1
         
         if ProjectionGeometry == 'PARALLEL2D':
             L1 = np.sqrt(roi_max[0]**2 + roi_max[1]**2)/l1
-            L1 = np.clip(L1,1,ds.NumberofDetectorColumns/2)
+            L1 = np.clip(L1,1,ds.Columns/2)
             sinogram = np.zeros([number, 2*L1])
             i = 0
             for filename in glob.glob(os.path.join(DICOM_path, '*.dcm')):
                 ds = dicom.read_file(filename)
                 img = ds.pixel_array
+                img = -np.log(img/LightField)
+                img[img<0] = 0
+                img[np.isnan(img)] = 0
+                img[np.isinf(img)] = 0
                 sinogram[i,:] = img[center_1-L1:center_1+L1]
                 i += 1
             
         if ProjectionGeometry == 'PARALLEL3D':
             L1 = np.sqrt(roi_max[0]**2 + roi_max[1]**2)/l1
             L2 = roi_max[2]/l2
-            L1 = np.clip(L1,1,ds.NumberofDetectorColumns/2)
-            L2 = np.clip(L2,1,ds.NumberofDetectorRows/2)
+            L1 = np.clip(L1,1,ds.Columns/2)
+            L2 = np.clip(L2,1,ds.Rows/2)
             
             sinogram = np.zeros([number, 2*L1, 2*L2])
             i = 0
             for filename in glob.glob(os.path.join(DICOM_path, '*.dcm')):
                 ds = dicom.read_file(filename)
                 img = ds.pixel_array
+                img = -np.log(img/LightField)
+                img[img<0] = 0
+                img[np.isnan(img)] = 0
+                img[np.isinf(img)] = 0
                 sinogram[i,:,:] = img[center_1-L1:center_1+L1, center_2-L2:center_2+L2]
                 i += 1
     else:
@@ -186,6 +208,10 @@ def sino_gene(DICOM_path, **kwargs):
         for filename in glob.glob(os.path.join(DICOM_path, '*.dcm')):
             ds = dicom.read_file(filename)
             img = ds.pixel_array
+            img = -np.log(img/LightField)
+            img[img<0] = 0
+            img[np.isnan(img)] = 0
+            img[np.isinf(img)] = 0
             sinogram[i,:,:] = img
             i += 1
             
