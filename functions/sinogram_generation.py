@@ -189,6 +189,6 @@ def sino_gene(DICOM_path, **kwargs):
             sinogram[i,:,:] = img
             i += 1
             
-    return sinogram
+    return sinogram, ds
     
 

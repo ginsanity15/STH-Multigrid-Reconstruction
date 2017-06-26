@@ -27,7 +27,7 @@ def ExpandMatrix(matrix, scale):
     return matrix_n
 
 
-def Display_multigrid(coarse_image, roi, fold, roi_min, roi_max, fine_cell, **kwargs):
+def Display_multigrid(reco, fold, roi_min, roi_max, fine_cell, **kwargs):
     '''
     Explanation of each parameters
     
@@ -39,23 +39,26 @@ def Display_multigrid(coarse_image, roi, fold, roi_min, roi_max, fine_cell, **kw
     pos: input the target position
     '''
     
-    c_l, c_w, c_h = coarse_image.shape()
-    f_l, f_w, f_h = roi.shape()
+    coarse_image = reco[0].asarray()
+    roi = reco[1].asarray()
+    c_l, c_w, c_h = coarse_image.shape
+    f_l, f_w, f_h = roi.shape
     length_l = fine_cell * fold * c_l
     length_w = fine_cell * fold * c_w
     length_h = fine_cell * fold * c_h
     
     axis = kwargs.pop('axis', None)
     pos = kwargs.pop('pos', None)
-    if axis is None or axis == 'Z':
-        if pos >= fine_cell*fold*c_h/2 or pos <= -fine_cell*fold*c_h/2:
-            raise ValueError('Selected slice out of reconstruction range')
-    elif axis == 'Y':
-        if pos >= fine_cell*fold*c_w/2 or pos <= -fine_cell*fold*c_w/2:
-            raise ValueError('Selected slice out of reconstruction range')
-    elif axis == 'X':
-        if pos >= fine_cell*fold*c_l/2 or pos <= -fine_cell*fold*c_l/2:
-            raise ValueError('Selected slice out of reconstruction range')
+    if pos is not None:
+        if axis is None or axis == 'Z':
+            if pos >= fine_cell*fold*c_h/2 or pos <= -fine_cell*fold*c_h/2:
+                raise ValueError('Selected slice out of reconstruction range')
+        elif axis == 'Y':
+            if pos >= fine_cell*fold*c_w/2 or pos <= -fine_cell*fold*c_w/2:
+                raise ValueError('Selected slice out of reconstruction range')
+        elif axis == 'X':
+            if pos >= fine_cell*fold*c_l/2 or pos <= -fine_cell*fold*c_l/2:
+                raise ValueError('Selected slice out of reconstruction range')
        
     crossline = kwargs.pop('crossline', None)
     
@@ -127,9 +130,11 @@ def Display_multigrid(coarse_image, roi, fold, roi_min, roi_max, fine_cell, **kw
 
 # For now, it seems there is no way to display reconstruciton image with as
 # many ROIs as we like in one single functions, this is a serious issue
-def Display_multigrid_2roi(coarse_image, roi, **kwargs):
+def Display_multigrid_2roi(reco, **kwargs):
     '''
     Explanation here
     '''
+    # reco.size can be used to determine how many ROIs are there, then what?
+    roi_num = reco.size - 1
     return 'To be defined'
     

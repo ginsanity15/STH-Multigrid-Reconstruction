@@ -96,18 +96,16 @@ pixel_space = np.float(pixel_space[0])
 # to set a value lower than 50, even when this number equals 50, an obvious
 # difference on intensity can be observed at ROI and backgound
 coarse_length = 200
-coarse_length_x = coarse_length* max_pt[0]/max(max_pt)
-coarse_length_y = coarse_length* max_pt[1]/max(max_pt)
-coarse_length_z = coarse_length* max_pt[2]/max(max_pt)
-
+coarse_length_x = np.int(coarse_length * max_pt[0]/max(max_pt))
+coarse_length_y = np.int(coarse_length * max_pt[1]/max(max_pt))
+coarse_length_z = np.int(coarse_length * max_pt[2]/max(max_pt))
 
 # Below sets the max number of pixels included in one direction on fine grid
 # This number is determined by the range of reconstruction space as well as the 
 # size of each pxiel on the reconstruction space
-fine_length_x = (max_pt[0] - min_pt[0])/pixel_space
-fine_length_y = (max_pt[1] - min_pt[1])/pixel_space
-fine_length_z = (max_pt[2] - min_pt[2])/pixel_space
-
+fine_length_x = np.int((max_pt[0] - min_pt[0])/pixel_space)
+fine_length_y = np.int((max_pt[1] - min_pt[1])/pixel_space)
+fine_length_z = np.int((max_pt[2] - min_pt[2])/pixel_space)
 
 # Define space to store background image and ROI
 filename_c = output_store_path + 'FBP' + '_coarse_space_' + str(coarse_length) + '.txt'

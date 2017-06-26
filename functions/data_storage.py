@@ -29,10 +29,8 @@ def store_as_dcm(reco, filename, templatename, **kwargs):
     ds = dicom.read_file(templatename)
     ds.pixel_array = reco.asarray()
     
-    #TODO: Think about which tags in header file can be used here
+    #Store useful information in tags
     
-    #TODOTOMORROW: Copy Forward and Backward PD, CG to functions folder, cause
-    # we will give them the ability to calculate convergence curve
     
     ds.save_as(filename)
 

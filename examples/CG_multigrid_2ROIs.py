@@ -14,7 +14,7 @@ Output data:
 
 Requirements:
     pydicom (import dicom)
-    ...
+    ODL
     
 """
 
@@ -27,6 +27,7 @@ sys.path.insert(0, '/Users/starbury/odl/STH-Multigrid-Reconstruction/functions')
 
 import display_function as df
 import sinogram_generation as sg
+import data_storage as dsto
 # %%
 # Given the path that stores all those projection images in DICOM format, users 
 # may need to modify this based on the directory they store the dataset
@@ -36,8 +37,8 @@ DICOM_path = '/Users/starbury/odl/STH-Multigrid-Reconstruction/Data'
 output_store_path = '/home/davlars/Bo/real/Data_LC_512/TV/'
 
 # Define the reconstruction space, these two points should be the opposite of each other
-min_pt = [-20,-20,-20]
-max_pt = [20, 20, 20]
+min_pt = [-20,-20,-1]
+max_pt = [20, 20, 1]
 
 # TODO: write a function to truncate projection image to include ROI only and 
 # output the combined sinogram as well as one DICOM file (arbitrarily, we are 
@@ -72,9 +73,9 @@ end = ds.ScanArc
 end = np.float(end)
 
 # Number of pixels along each row and column on projection image
-length = ds.NumberofDetectorRows
+length = ds.Rows
 length = np.int(length)
-width = ds.NumberofDetectorColumns
+width = ds.Columns
 width = np.int(width)
 
 # Check is the detector has performed binning (e.g. combine intensity on four pixels
@@ -95,17 +96,17 @@ pixel_space = np.float(pixel_space[0])
 # to set a value lower than 50, even when this number equals 50, an obvious
 # difference on intensity can be observed at ROI and backgound
 coarse_length = 200
-coarse_length_x = coarse_length * max_pt[0]/max(max_pt)
-coarse_length_y = coarse_length * max_pt[1]/max(max_pt)
-coarse_length_z = coarse_length * max_pt[2]/max(max_pt)
+coarse_length_x = np.int(coarse_length * max_pt[0]/max(max_pt))
+coarse_length_y = np.int(coarse_length * max_pt[1]/max(max_pt))
+coarse_length_z = np.int(coarse_length * max_pt[2]/max(max_pt))
 
 
 # Below sets the max number of pixels included in one direction on fine grid
 # This number is determined by the range of reconstruction space as well as the 
 # size of each pxiel on the reconstruction space
-fine_length_x = (max_pt[0] - min_pt[0])/pixel_space
-fine_length_y = (max_pt[1] - min_pt[1])/pixel_space
-fine_length_z = (max_pt[2] - min_pt[2])/pixel_space
+fine_length_x = np.int((max_pt[0] - min_pt[0])/pixel_space)
+fine_length_y = np.int((max_pt[1] - min_pt[1])/pixel_space)
+fine_length_z = np.int((max_pt[2] - min_pt[2])/pixel_space)
 
 
 # Define space to store background image and ROI
@@ -119,10 +120,10 @@ coarse_discr = odl.uniform_discr(min_pt, max_pt, [coarse_length_x, coarse_length
 fine_discr = odl.uniform_discr(min_pt, max_pt, [fine_length_x, fine_length_y, fine_length_z])
 
 # Define ROI here
-insert_min_pt1 = [-5, 0, -5]
-insert_max_pt1 = [5, 10, 5]
-insert_min_pt2 = [-5, 0, -5]
-insert_max_pt2 = [5, 10, 5]
+insert_min_pt1 = [-5, 0, -.5]
+insert_max_pt1 = [5, 10, .5]
+insert_min_pt2 = [-10, -5, -.5]
+insert_max_pt2 = [0, 5, .5]
 
 # Pre-process the ROI to ensure the edge effect will be minimized
 index1 = np.floor((np.array(insert_min_pt1) - np.array(min_pt))/coarse_discr.cell_sides)
@@ -179,17 +180,16 @@ reco = sum_ray_trafo.domain.zero()
 data = sum_ray_trafo.range.element(sino*1000)
     
 # %% Reconstruction
-callback = odl.solvers.CallbackShow(display_step=1)
+callback = odl.solvers.CallbackShow()
 odl.solvers.conjugate_gradient_normal(sum_ray_trafo, reco, data,
                                       niter=10, callback=callback)
       
 # %% Storing the image
 # TODO: Check if it is possible to store it in DICOM file (this could ease a lot
 # of pain for displaying)
-store_as_dcm(reco, filename_c, filename_f1, filename_f2)
+# dsto.store_as_dcm(reco, filename_c, filename_f1, filename_f2)
 
 #store_as_txt
-
 f = open(filename_c,'wb')
 coarse_image = reco[0].asarray()
 pickle.dump(coarse_image,f)
