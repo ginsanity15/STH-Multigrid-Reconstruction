@@ -23,30 +23,30 @@ import odl
 import odl_multigrid as multigrid
 import pickle
 import sys
-sys.path.insert(0, '/Users/starbury/odl/STH-Multigrid-Reconstruction/functions')
+import dicom
+sys.path.insert(0, '/home/davlars/STH-Multigrid-Reconstruction/functions')
 
-import display_function as df
+import display_functions as df
 import sinogram_generation as sg
 # %%
 # Given the path that stores all those projection images in DICOM format, users 
 # may need to modify this based on the directory they store the dataset
-DICOM_path = '/Users/starbury/odl/STH-Multigrid-Reconstruction/Data'
+DICOM_path = '/home/davlars/microCT/projections/'
 
 # Directory for storing the .txt file that includes information of the reconstructed image 
-output_store_path = '/home/davlars/Bo/real/Data_LC_512/TV/'
+output_store_path = '/home/davlars/microCT/output/'
 
 # Path to the Light Field image
-Light_Field_Path = ''
+Light_Field = '/home/davlars/microCT/LF/Light_Field.dcm'
 
 # Define the reconstruction space, these two points should be the opposite of each other
 # Decreasing the size of these two indices can increase the reconstruction speed
 min_pt = [-20,-20,-1]
 max_pt = [20, 20, 1]
 
-# TODO: write a function to truncate projection image to include ROI only and 
-# output the combined sinogram as well as one DICOM file (arbitrarily, we are 
-# only interested in the identical information stored in header file)
-sino, ds = sg.sino_gene(DICOM_path, min_pt, max_pt, Light_Field_Path, Log = 1)
+# Load sinogram
+sino, ds = sg.sino_gene(DICOM_path, roi_min = min_pt, roi_max = max_pt,
+                        LightFieldPath = Light_Field, Log = 1)
 
 # These three numbers corresponds to the number of projection image as well as
 # the size of each projection image
@@ -81,7 +81,7 @@ length = np.int(length)
 width = ds.Columns
 width = np.int(width)
 
-# Check is the detector has performed binning (e.g. combine intensity on four pixels
+# Check if the detector has performed binning (e.g. combine intensity on four pixels
 # and output as one) on the output projection 
 Binning_scale = ds.DetectorBinning
 Bin_scale = 1/float(Binning_scale[0])
@@ -164,8 +164,7 @@ sum_ray_trafo = odl.ReductionOperator(masked_coarse_ray_trafo, insert_ray_trafo1
 pspace = sum_ray_trafo.domain
 
 reco = sum_ray_trafo.domain.zero()
-data = sum_ray_trafo.range.element(sino*1000)
-    
+data = sum_ray_trafo.range.element(sino*1000) #Increase dynamics range, unclear why    
 # %% Reconstruction
 insert_grad = 2.8*odl.Gradient(insert_discr1, pad_mode='order1')
         
@@ -233,6 +232,12 @@ pickle.dump(coarse_image,f)
 f = open(filename_f,'wb')
 roi = reco[1].asarray()
 pickle.dump(roi,f)
-    
+
+'''
+# %% Open pickled files
+f_c = open(filename_c, 'rb')
+img = pickle.load(f_c)
+'''
+
 # %% Display multi-grid image
-df.Display_multigrid(coarse_image, roi)
+df.Display_multigrid(reco, 4, insert_min_pt1, insert_max_pt1, cell)

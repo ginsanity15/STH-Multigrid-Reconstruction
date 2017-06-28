@@ -93,6 +93,8 @@ def sino_gene(DICOM_path, **kwargs):
             ds = dicom.read_file(filename)
         i += 1
 
+    print(filename)
+        
     # Calculate the range on projection image that correspond to the region
     # that users want to reconstruct
     L1 = np.int(ds.Rows/2)
@@ -135,9 +137,10 @@ def sino_gene(DICOM_path, **kwargs):
             # I would like to use this, but this command cannot guarantee to read in files in the right order
             #for filename in glob.glob(os.path.join(DICOM_path, '*.dcm')):
             for i in range(number):
-                filename = DICOM_path + '/projection_image' + str(i+1) + '.dcm'
+                filename = DICOM_path + '/projection_image' + str(i) + '.dcm'
                 ds = dicom.read_file(filename)
                 img = ds.pixel_array
+                img = np.rot90(img,3)
                 if LightFieldPath is not None:
                     img = img/LightField
                     img[np.isnan(img)] = 1
