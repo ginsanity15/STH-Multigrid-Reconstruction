@@ -33,9 +33,15 @@ def Display_multigrid(reco, fold, roi_min, roi_max, fine_cell, **kwargs):
     
     Use keyword arguments to give users freedom on which axis should be visualized
     as well as the relative positon of the visualized slice
-    Options for keyword arguments:
-    axis: Can be choosen among 'X', 'Y', 'Z'
     
+    reco: reconstruction (reco[0]: coarse, reco[1]: fine)
+    fold: ratio in discretization between fine/coarse
+    roi_min: physical coord of fine ROI (min point)
+    roi_max: physical coord of fine ROI (max point)
+    fine_cell: cell size in fine grid
+    
+    Optional keyword arguments:
+    axis: Can be choosen among 'X', 'Y', 'Z' 
     pos: input the target position
     '''
     
@@ -69,7 +75,7 @@ def Display_multigrid(reco, fold, roi_min, roi_max, fine_cell, **kwargs):
     roi_ori = (np.array(roi_min) + np.array(roi_max))/2
     roi_ori_index = np.array([c_l*fold/2, c_w*fold/2, c_h*fold/2]) + (roi_ori)/(fine_cell)
     
-    # I got no better idea than making a discussion here
+    # Define slice axis (if such keyword arg is given)
     if axis is None or axis == 'Z':
         half_c = np.int(c_h/2)
         half_f = np.int(f_h/2)
