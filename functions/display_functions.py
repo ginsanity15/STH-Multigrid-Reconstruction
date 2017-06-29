@@ -62,6 +62,9 @@ def Display_multigrid(reco, fold, roi_min, roi_max, fine_cell, **kwargs):
        
     crossline = kwargs.pop('crossline', None)
     
+    # Catch unexpected keyword arguments
+    if kwargs:
+        raise TypeError('unexpected keyword argument: {}'.format(kwargs))
     
     roi_ori = (np.array(roi_min) + np.array(roi_max))/2
     roi_ori_index = np.array([c_l*fold/2, c_w*fold/2, c_h*fold/2]) + (roi_ori)/(fine_cell)

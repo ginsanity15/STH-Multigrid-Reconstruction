@@ -17,23 +17,6 @@ Output:
 import pickle
 import dicom
 
-def store_as_dcm(reco, filename, templatename, **kwargs):
-    '''
-    It is encouraged to store reconstruction image also as OPEN CT format (DICOM),
-    even though users can hardly observe any information of interest when opening 
-    the stored image with DICOM reader. 
-    Storing reconstruction result with DICOM format give users option of containing
-    relevant information about the reconstructed image in the header file, which will
-    be useful when trying to display the image with functions developed in this repository
-    '''
-    ds = dicom.read_file(templatename)
-    ds.pixel_array = reco.asarray()
-    
-    #Store useful information in tags
-    
-    
-    ds.save_as(filename)
-
 # If there is one sub-operator that could determine how many subspaces there 
 # are in 'reco', this procedure can be further simplified and the functionality
 # can be futher extended   
@@ -44,6 +27,10 @@ def store_as_txt(reco, filename_c, filename_f, **kwargs):
     curve = kwargs.pop('curve', None)
     time = kwargs.pop('time', None)
     minimization = kwargs.pop('minimization', None)
+    
+    # Catch unexpected keyword arguments
+    if kwargs:
+        raise TypeError('unexpected keyword argument: {}'.format(kwargs))
     
     f = open(filename_c+'.txt','wb')
     coarse_image = reco[0].asarray()

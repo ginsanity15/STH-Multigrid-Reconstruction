@@ -71,6 +71,10 @@ def sino_gene(DICOM_path, **kwargs):
         LightField = LF_ds.pixel_array
     Log = kwargs.pop('Log', None)
     
+    # Catch unexpected keyword arguments
+    if kwargs:
+        raise TypeError('unexpected keyword argument: {}'.format(kwargs))
+    
     # Check if the reconstruction space is centered in the origin point
     if roi_max[0] + roi_min[0] != 0 or roi_max[1] + roi_min[1] != 0 \
     or roi_max[0] + roi_min[0] != 0:
