@@ -26,7 +26,9 @@ For the reconstruction, the python library [```odl```](https://github.com/odlgro
 Function to save reconstructed data file as pickled .txt-files
 
 ### functions/display_function.py
-Function to display multigrid reconstructions, overlaying fine and coarse grid reconstructions. The function is created for one ROI, and several ROI display remains to be implemented. Note that for the dual-display, the coarse grid is expanded (using ```ExpandMatrix```) to have the same artificial discretization as the fine grid.
+Function to display multigrid reconstructions, overlaying fine and coarse grid reconstructions. The function is created for one ROI, and several ROI display remains to be implemented. Note that for the dual-display, the coarse grid is expanded (using ```ExpandMatrix```) to have the same artificial discretization as the fine grid. 
+
+```display_function``` also has a keword argument ```crossline``` that enables plotting over a defined line in the middle of the reconstruction ROI.
 
 ### functions/sinogram_generation.py
 Generate sinogram from input openCT dicom-files. Option input in the form of light field and potential min/max definitions for truncation.
