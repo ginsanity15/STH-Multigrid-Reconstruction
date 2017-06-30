@@ -21,13 +21,13 @@ Requirements:
 import numpy as np
 import odl
 import odl_multigrid as multigrid
-import pickle
 import sys
 import dicom
 sys.path.insert(0, '/home/davlars/STH-Multigrid-Reconstruction/functions')
 
 import display_functions as df
 import sinogram_generation as sg
+import data_storage as dsto
 # %%
 # Given the path that stores all those projection images in DICOM format, users 
 # may need to modify this based on the directory they store the dataset
@@ -114,8 +114,8 @@ fine_length_y = np.int((max_pt[1] - min_pt[1])/pixel_space)
 fine_length_z = np.int((max_pt[2] - min_pt[2])/pixel_space)
 
 # Define space to store background image and ROI
-filename_c = output_store_path + 'CG_coarse_space_' + str(coarse_length) + '.txt'
-filename_f = output_store_path + 'CG_coarse_space_' + str(coarse_length) + '_fine.txt'
+filename_c = output_store_path + 'CG_coarse_space_' + str(coarse_length)
+filename_f = output_store_path + 'CG_coarse_space_' + str(coarse_length) + '_fine'
 
 # Define the reconstruction space (both coarse grid and fine grid) depends on the 
 # setting give above
@@ -229,18 +229,17 @@ curve, time_slot, minimization = odl.solvers.forward_backward_pd(
             Sinogram = data, timeslot = 1, minimization = 1)
       
 # %% Storing the image
-f = open(filename_c,'wb')
-coarse_image = reco[0].asarray()
-pickle.dump(coarse_image,f)
-f = open(filename_f,'wb')
-roi = reco[1].asarray()
-pickle.dump(roi,f)
-
-'''
-# %% Open pickled files
-f_c = open(filename_c, 'rb')
-img = pickle.load(f_c)
-'''
+dsto.store_as_txt(reco, filename_c, filename_f, curve = curve, time_slot = time_slot, minimization = minimization)
 
 # %% Display multi-grid image
-df.Display_multigrid(reco, 4, insert_min_pt1, insert_max_pt1, cell)
+# Although the reconstruction space is set by users, the discretization grid created by computer may not 
+# match the expecation of users. For instance, we cannot create a area with size (2mm X 2mm) if each 
+# pixel has a length equal 0.8mm. The actual reconstruction space will be printed here to ensure users will
+# always display slice in the right range
+ratio = fine_length_x/coarse_length_x
+max_x = min(coarse_length_x*ratio*cell, fine_length_x*cell)/2
+max_y = min(coarse_length_y*ratio*cell, fine_length_y*cell)/2
+max_z = min(coarse_length_z*ratio*cell, fine_length_z*cell)/2
+max_ind = np.array([max_x, max_y, max_z])
+print('The actual reconstruction space is between the range: ' + str(-max_ind) + ' and ' + str(max_ind))
+df.Display_multigrid(reco, ratio, insert_min_pt1, insert_max_pt1, cell)

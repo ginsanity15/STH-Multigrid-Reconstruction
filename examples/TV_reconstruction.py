@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue May  2 14:33:33 2017
+Created on Sat Jun 24 15:33:15 2017
 
 @author: Bo Gao
 
@@ -20,37 +20,34 @@ Requirements:
 
 import numpy as np
 import odl
-import odl_multigrid as multigrid
+#import odl_multigrid as multigrid
+import pickle
 import sys
+import dicom
 sys.path.insert(0, '/home/davlars/STH-Multigrid-Reconstruction/functions')
 
 import display_functions as df
 import sinogram_generation as sg
-import data_storage as dsto
-
 # %%
 # Given the path that stores all those projection images in DICOM format, users 
 # may need to modify this based on the directory they store the dataset
 DICOM_path = '/home/davlars/microCT/projections/'
 
+# Directory for storing the .txt file that includes information of the reconstructed image 
+output_store_path = '/home/davlars/Bo/real/Data_LC_512/TV/'
+
 # Path to the Light Field image
 Light_Field = '/home/davlars/microCT/LF/Light_Field.dcm'
 
-# Directory for storing the .txt file that includes information of the reconstructed image 
-output_store_path = '/home/davlars/Bo/real/Data_LC_512/FBP/'
-
 # Define the reconstruction space, these two points should be the opposite of each other
+# Decreasing the size of these two indices can increase the reconstruction speed
 min_pt = [-20,-20,-1]
 max_pt = [20, 20, 1]
 
 # TODO: write a function to truncate projection image to include ROI only and 
 # output the combined sinogram as well as one DICOM file (arbitrarily, we are 
 # only interested in the identical information stored in header file)
-sino, ds = sg.sino_gene(DICOM_path,
-                        roi_min=min_pt,
-                        roi_max=max_pt,
-                        LightFieldPath = Light_Field,
-                        Log=1)
+sino, ds = sg.sino_gene(DICOM_path, roi_min = min_pt, roi_max = max_pt, LightFieldPath = Light_Field, Log = 1)
 
 # These three numbers corresponds to the number of projection image as well as
 # the size of each projection image
@@ -102,7 +99,7 @@ pixel_space = np.float(pixel_space[0])
 # This can be given arbitrarily, however, through testing, it is not recommend
 # to set a value lower than 50, even when this number equals 50, an obvious
 # difference on intensity can be observed at ROI and backgound
-coarse_length = 50
+coarse_length = 200
 coarse_length_x = np.int(coarse_length * max_pt[0]/max(max_pt))
 coarse_length_y = np.int(coarse_length * max_pt[1]/max(max_pt))
 coarse_length_z = np.int(coarse_length * max_pt[2]/max(max_pt))
@@ -115,23 +112,11 @@ fine_length_y = np.int((max_pt[1] - min_pt[1])/pixel_space)
 fine_length_z = np.int((max_pt[2] - min_pt[2])/pixel_space)
 
 # Define space to store background image and ROI
-filename_c = output_store_path + 'FBP' + '_coarse_space_' + str(coarse_length)
-filename_f = output_store_path + 'FBP' + '_coarse_space_' + str(coarse_length) + '_fine'
+filename_c = output_store_path + 'CG_coarse_space_' + str(coarse_length) + '.txt'
 
 # Define the reconstruction space (both coarse grid and fine grid) depends on the 
 # setting give above
 coarse_discr = odl.uniform_discr(min_pt, max_pt, [coarse_length_x, coarse_length_y, coarse_length_z])
-fine_discr = odl.uniform_discr(min_pt, max_pt, [fine_length_x, fine_length_y, fine_length_z])
-
-# Define ROI here
-insert_min_pt1 = [-5, -10, -0.5]
-insert_max_pt1 = [5, 0, 0.5]
-
-# Pre-process the ROI to ensure the edge effect will be minimized
-index1 = np.floor((np.array(insert_min_pt1) - np.array(min_pt))/coarse_discr.cell_sides)
-insert_min_pt1 = np.array(min_pt) + coarse_discr.cell_sides*index1
-index2 = np.floor((np.array(max_pt) - np.array(insert_max_pt1))/coarse_discr.cell_sides)
-insert_max_pt1 = np.array(max_pt) - coarse_discr.cell_sides*index2
 
 # Define the detector
 det_min_pt = -np.array([L1/2, L2/2])*cell
@@ -145,52 +130,74 @@ angle_partition = odl.uniform_partition(0, end - initial, num)
 geometry = odl.tomo.CircularConeFlatGeometry(angle_partition, detector_partition, 
                                              src, det)
 
-# Mask out ROI on the coarse grid
-coarse_mask1 = multigrid.operators.MaskingOperator(coarse_discr, insert_min_pt1, insert_max_pt1)
-
 # Define the forward operator of the masked coarse grid
 coarse_ray_trafo = odl.tomo.RayTransform(coarse_discr, geometry,impl='astra_cuda')
-masked_coarse_ray_trafo = coarse_ray_trafo * coarse_mask1
       
-# Define insert discretization using the fine cell sizes but the insert
-# min and max points   
-insert_discr1 = odl.uniform_discr_fromdiscr(
-                fine_discr, min_pt=insert_min_pt1, max_pt=insert_max_pt1,
-                cell_sides=fine_discr.cell_sides)
-    
-# Ray trafo on the insert discretization only
-insert_ray_trafo1 = odl.tomo.RayTransform(insert_discr1, geometry,impl='astra_cuda')
-    
-# Forward operator = sum of masked coarse ray trafo and insert ray trafo
-sum_ray_trafo = odl.ReductionOperator(masked_coarse_ray_trafo, insert_ray_trafo1)
-    
 # Make phantom in the product space
-pspace = sum_ray_trafo.domain
+pspace = coarse_ray_trafo.domain
 
-# Hann filter is used as it is the filter that is least sensitive to noise
-# Frequency scaling is selected empirically    
-fbp_insert = odl.tomo.fbp_op(insert_ray_trafo1, filter_type = 'Hann', frequency_scaling = 0.2)
-fbp_coarse = odl.tomo.fbp_op(coarse_ray_trafo, filter_type = 'Hann', frequency_scaling = 0.2)
-    
-reco = sum_ray_trafo.domain.zero()
-data = sum_ray_trafo.range.element(sino*1000)
+reco = coarse_ray_trafo.domain.zero()
+data = coarse_ray_trafo.range.element(sino*1000)
     
 # %% Reconstruction
-reco[0] = fbp_coarse(data)
-reco[1] = fbp_insert(data)
-      
+grad = 2.8*odl.Gradient(coarse_discr, pad_mode='order1')
+        
+# Differentiable part, build as ||. - g||^2 o P
+data_func = odl.solvers.L2NormSquared(coarse_ray_trafo.range).translated(data) * coarse_ray_trafo
+reg_param_1 = 2e-1
+reg_func_1 = reg_param_1 * odl.solvers.L2NormSquared(coarse_discr)
+smooth_func = data_func + reg_func_1
+
+# Non-differentiable part composed with linear operators
+reg_param = 2e-1
+nonsmooth_func = reg_param * odl.solvers.L1Norm(grad.range)
+        
+# Assemble into lists (arbitrary number can be given)
+lin_ops = [grad]
+nonsmooth_funcs = [nonsmooth_func]
+
+box_constr = odl.solvers.IndicatorBox(pspace, 0, 40) # According to reconstruction result of FBP
+f = box_constr
+
+# eta^-1 is the Lipschitz constant of the smooth functional gradient
+# xstart can be anything, now let's initialize it with Shepp-Logan Phantom
+phantom = odl.phantom.shepp_logan(coarse_discr, modified=True)
+ray_trafo_norm = 1.1 * odl.power_method_opnorm(coarse_ray_trafo,
+                                               xstart=phantom, maxiter=2)
+print('norm of the ray transform: {}'.format(ray_trafo_norm))
+eta = 1 / (2 * ray_trafo_norm ** 2 + 2 * reg_param_1)
+print('eta = {}'.format(eta))
+grad_norm = 1.1 * odl.power_method_opnorm(grad,
+                                          xstart=phantom,
+                                          maxiter=4)
+print('norm of the gradient: {}'.format(grad_norm))
+        
+# tau and sigma are like step sizes
+sigma = 4e-4
+tau = 1.0 * sigma
+# Here we check the convergence criterion for the forward-backward solver
+# 1. This is required such that the square root is well-defined
+print('tau * sigma * grad_norm ** 2 = {}, should be <= 1'
+      ''.format(tau * sigma * grad_norm ** 2))
+assert tau * sigma * grad_norm ** 2 <= 1
+# 2. This is the actual convergence criterion
+check_value = (2 * eta * min(1 / tau, 1 / sigma) *
+               np.sqrt(1 - tau * sigma * grad_norm ** 2))
+print('check_value = {}, must be > 1 for convergence'.format(check_value))
+convergence_criterion = check_value > 1
+assert convergence_criterion
+
+callback = (odl.solvers.CallbackPrintIteration() &
+            odl.solvers.CallbackShow())
+reco = pspace.zero()  # starting point
+curve, time_slot, minimization = odl.solvers.forward_backward_pd(
+            reco, f=f, g=nonsmooth_funcs, L=lin_ops, h=smooth_func,
+            tau=tau, sigma=[sigma], niter=150, callback=callback,
+            RayTrafo = coarse_ray_trafo,
+            Sinogram = data, timeslot = 1, minimization = 1)
+'''      
 # %% Storing the image
-dsto.store_as_txt(reco, filename_c, filename_f)
-   
-# %% Display multi-grid image
-# Although the reconstruction space is set by users, the discretization grid created by computer may not 
-# match the expecation of users. For instance, we cannot create a area with size (2mm X 2mm) if each 
-# pixel has a length equal 0.8mm. The actual reconstruction space will be printed here to ensure users will
-# always display slice in the right range
-ratio = fine_length_x/coarse_length_x
-max_x = min(coarse_length_x*ratio*cell, fine_length_x*cell)/2
-max_y = min(coarse_length_y*ratio*cell, fine_length_y*cell)/2
-max_z = min(coarse_length_z*ratio*cell, fine_length_z*cell)/2
-max_ind = np.array([max_x, max_y, max_z])
-print('The actual reconstruction space is between the range: ' + str(-max_ind) + ' and ' + str(max_ind))
-df.Display_multigrid(reco, ratio, insert_min_pt1, insert_max_pt1, cell, clim = [20, 40])
+f = open(filename_c,'wb')
+coarse_image = reco[0].asarray()
+pickle.dump(coarse_image,f)
+'''

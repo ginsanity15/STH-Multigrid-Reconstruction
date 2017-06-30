@@ -15,7 +15,6 @@ Output:
     
 """
 import pickle
-import dicom
 
 # If there is one sub-operator that could determine how many subspaces there 
 # are in 'reco', this procedure can be further simplified and the functionality
@@ -25,7 +24,7 @@ def store_as_txt(reco, filename_c, filename_f, **kwargs):
     Add some explanations here
     '''
     curve = kwargs.pop('curve', None)
-    time = kwargs.pop('time', None)
+    time_slot = kwargs.pop('time_slot', None)
     minimization = kwargs.pop('minimization', None)
     
     # Catch unexpected keyword arguments
@@ -44,12 +43,12 @@ def store_as_txt(reco, filename_c, filename_f, **kwargs):
         f = open(filename_curve,'wb')
         pickle.dump(curve,f)
         
-    if curve is not None:
+    if time_slot is not None:
         filename_time = filename_c + '_time.txt'
         f = open(filename_time,'wb')
-        pickle.dump(time,f)
+        pickle.dump(time_slot,f)
         
-    if curve is not None:
+    if minimization is not None:
         filename_minimization = filename_c + '_minimization.txt'
         f = open(filename_minimization,'wb')
         pickle.dump(minimization,f)
